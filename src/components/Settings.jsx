@@ -103,7 +103,7 @@ function Settings({
         purchaseInvoices,
         customerPayments,
         supplierPayments,
-        users,
+        users: users.map(({ password, ...user }) => ({ ...user, password: "hidden" })),
         auditLogs,
         storeSettings,
       },
@@ -383,7 +383,7 @@ function Settings({
       <div style={styles.card}>
         <h3>النسخ الاحتياطي الكامل</h3>
         <p style={{ color: "#64748b" }}>
-          تصدير بيانات Supabase الفعلية + المستخدمين المحليين. احفظ النسخة في مكان آمن.
+          تصدير بيانات Supabase الفعلية + إعدادات النظام. يتم إخفاء كلمات مرور المستخدمين في النسخة الاحتياطية.
         </p>
         <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
           <button style={styles.saveBtn} onClick={exportBackup}>تصدير JSON</button>

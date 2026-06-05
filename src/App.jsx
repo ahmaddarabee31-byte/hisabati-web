@@ -31,17 +31,44 @@ function App() {
     localStorage.getItem("currentPage") || "dashboard"
   );
 
-  const defaultUsers = [
-    { id: 1, username: "admin", password: "1234", role: "admin", active: true },
-  ];
+  const [users, setUsers] = useState([]);
+  const [usersLoading, setUsersLoading] = useState(true);
 
-  const [users, setUsers] = useState(() => {
-    try {
-      return JSON.parse(localStorage.getItem("hisabatiUsers")) || defaultUsers;
-    } catch {
-      return defaultUsers;
-    }
+  const normalizeLoginText = (value) =>
+    String(value || "")
+      .trim()
+      .replace(/[٠-٩]/g, (digit) => String("٠١٢٣٤٥٦٧٨٩".indexOf(digit)))
+      .replace(/[۰-۹]/g, (digit) => String("۰۱۲۳۴۵۶۷۸۹".indexOf(digit)));
+
+  const mapSupabaseUser = (user) => ({
+    id: user.id,
+    username: user.username,
+    password: user.password,
+    role: user.role || "cashier",
+    active: user.active !== false,
+    createdAt: user.created_at || user.createdAt || null,
   });
+
+  const loadUsers = async () => {
+    setUsersLoading(true);
+
+    const { data, error } = await supabase
+      .from("users")
+      .select("*")
+      .order("id", { ascending: true });
+
+    if (error) {
+      console.error("Users load error:", error);
+      alert("خطأ في تحميل المستخدمين من Supabase. تأكد من إنشاء جدول users وإضافة مستخدم admin.");
+      setUsersLoading(false);
+      return [];
+    }
+
+    const mappedUsers = (data || []).map(mapSupabaseUser);
+    setUsers(mappedUsers);
+    setUsersLoading(false);
+    return mappedUsers;
+  };
 
   const [currentUser, setCurrentUser] = useState(() => {
     try {
@@ -137,16 +164,32 @@ function App() {
     setMobileMenuOpen(false);
   };
 
-  const handleLogin = (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
-    const user = users.find(
-      (u) =>
-        u.active !== false &&
-        u.username === loginUsername.trim() &&
-        u.password === loginPassword
-    );
 
-    if (!user) return alert("اسم المستخدم أو كلمة المرور غير صحيحة");
+    const usernameInput = normalizeLoginText(loginUsername);
+    const passwordInput = normalizeLoginText(loginPassword);
+
+    if (!usernameInput || !passwordInput) {
+      return alert("أدخل اسم المستخدم وكلمة المرور");
+    }
+
+    const { data: userData, error } = await supabase
+      .from("users")
+      .select("*")
+      .eq("username", usernameInput)
+      .maybeSingle();
+
+    if (error) {
+      console.error("Login error:", error);
+      return alert("حدث خطأ في الاتصال بقاعدة بيانات المستخدمين");
+    }
+
+    const user = userData ? mapSupabaseUser(userData) : null;
+
+    if (!user || user.active === false || normalizeLoginText(user.password) !== passwordInput) {
+      return alert("اسم المستخدم أو كلمة المرور غير صحيحة");
+    }
 
     const safeUser = {
       id: user.id,
@@ -160,6 +203,8 @@ function App() {
     setLoginUsername("");
     setLoginPassword("");
     setPage("dashboard");
+
+    await loadUsers();
 
     const loginLog = {
       id: Date.now() + Math.random(),
@@ -399,13 +444,58 @@ const updateCustomer = async (customer) => {
   }, [page]);
 
   useEffect(() => {
-    localStorage.setItem("hisabatiUsers", JSON.stringify(users));
-  }, [users]);
-
-
-  useEffect(() => {
     localStorage.setItem("hisabatiStoreSettings", JSON.stringify(storeSettings));
   }, [storeSettings]);
+
+  useEffect(() => {
+    loadUsers();
+  }, []);
+
+  useEffect(() => {
+    const validateCurrentUser = async () => {
+      if (!currentUser?.id) return;
+
+      const { data, error } = await supabase
+        .from("users")
+        .select("*")
+        .eq("id", currentUser.id)
+        .maybeSingle();
+
+      if (error) {
+        console.error("User validation error:", error);
+        return;
+      }
+
+      if (!data || data.active === false) {
+        localStorage.removeItem("hisabatiCurrentUser");
+        setCurrentUser(null);
+        setPage("dashboard");
+        return;
+      }
+
+      const safeUser = {
+        id: data.id,
+        username: data.username,
+        role: data.role || "cashier",
+        active: data.active !== false,
+      };
+
+      setCurrentUser((prev) => {
+        if (
+          prev?.id === safeUser.id &&
+          prev?.username === safeUser.username &&
+          prev?.role === safeUser.role &&
+          prev?.active === safeUser.active
+        ) {
+          return prev;
+        }
+        localStorage.setItem("hisabatiCurrentUser", JSON.stringify(safeUser));
+        return safeUser;
+      });
+    };
+
+    validateCurrentUser();
+  }, []);
 
   useEffect(() => {
     if (currentUser && !canAccess(page)) {
@@ -1221,6 +1311,10 @@ const updateCustomer = async (customer) => {
             placeholder="اسم المستخدم"
             style={styles.input}
             autoFocus
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
+            dir="ltr"
           />
 
           <input
@@ -1229,12 +1323,16 @@ const updateCustomer = async (customer) => {
             onChange={(e) => setLoginPassword(e.target.value)}
             placeholder="كلمة المرور"
             style={styles.input}
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
+            dir="ltr"
           />
 
           <button style={styles.saveBtn}>دخول</button>
 
           <p style={{ color: "#64748b", marginTop: 18 }}>
-            المستخدم الافتراضي: admin / 1234
+            يتم التحقق من المستخدمين من Supabase
           </p>
         </form>
       </div>
@@ -1512,6 +1610,7 @@ const updateCustomer = async (customer) => {
             supplierPayments={supplierPayments}
             users={users}
             setUsers={setUsers}
+            loadUsers={loadUsers}
             currentUser={currentUser}
             supabase={supabase}
             auditLogs={auditLogs}
