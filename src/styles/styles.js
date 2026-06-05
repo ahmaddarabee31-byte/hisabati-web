@@ -24,6 +24,7 @@ export const styles = {
     padding: "34px",
     overflowY: "auto",
   },
+  
 
   logo: {
     textAlign: "center",
@@ -73,16 +74,21 @@ export const styles = {
   },
 
   input: {
-    width: "100%",
-    padding: "15px 16px",
-    borderRadius: "16px",
-    border: "1px solid #c7d2fe",
-    background: "#ffffff",
-    fontSize: "15px",
-    marginBottom: "13px",
-    outline: "none",
-    boxSizing: "border-box",
-  },
+  width: "100%",
+  padding: "15px 16px",
+  borderRadius: "16px",
+  border: "1px solid #c7d2fe",
+  background: "#ffffff",
+
+  color: "#0f172a",
+  WebkitTextFillColor: "#0f172a",
+  caretColor: "#2563eb",
+
+  fontSize: "16px",
+  marginBottom: "13px",
+  outline: "none",
+  boxSizing: "border-box",
+},
 
   textarea: {
     width: "100%",
