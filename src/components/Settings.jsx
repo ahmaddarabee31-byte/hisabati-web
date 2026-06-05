@@ -11,6 +11,7 @@ function Settings({
   supplierPayments = [],
   users = [],
   setUsers,
+  loadUsers,
   currentUser,
   supabase,
   auditLogs = [],
@@ -41,6 +42,31 @@ function Settings({
   const isAdmin = currentUser?.role === "admin";
 
   const activeAdmins = users.filter((u) => u.role === "admin" && u.active !== false);
+
+  const refreshUsers = async () => {
+    if (typeof loadUsers === "function") {
+      await loadUsers();
+      return;
+    }
+
+    if (supabase) {
+      const { data, error } = await supabase
+        .from("users")
+        .select("*")
+        .order("id", { ascending: true });
+
+      if (!error) {
+        setUsers?.((data || []).map((u) => ({
+          id: u.id,
+          username: u.username,
+          password: u.password,
+          role: u.role || "cashier",
+          active: u.active !== false,
+          createdAt: u.created_at || null,
+        })));
+      }
+    }
+  };
 
   const exportAuditLogsExcel = () => {
     const rows = auditLogs.map((log) => ({
@@ -151,16 +177,36 @@ function Settings({
     XLSX.writeFile(workbook, `hisabati-backup-${new Date().toISOString().slice(0, 10)}.xlsx`);
   };
 
-  const changePassword = () => {
+  const changePassword = async () => {
     if (!currentUser) return alert("يجب تسجيل الدخول أولاً");
     if (!oldPassword || !newPassword || !confirmPassword) return alert("أكمل بيانات تغيير كلمة المرور");
     if (newPassword.length < 4) return alert("كلمة المرور يجب أن تكون 4 خانات على الأقل");
     if (newPassword !== confirmPassword) return alert("كلمة المرور الجديدة غير متطابقة");
 
-    const user = users.find((u) => u.id === currentUser.id);
+    const { data: user, error: readError } = await supabase
+      .from("users")
+      .select("*")
+      .eq("id", currentUser.id)
+      .maybeSingle();
+
+    if (readError) {
+      console.error(readError);
+      return alert("خطأ في قراءة بيانات المستخدم");
+    }
+
     if (!user || user.password !== oldPassword) return alert("كلمة المرور الحالية غير صحيحة");
 
-    setUsers(users.map((u) => (u.id === currentUser.id ? { ...u, password: newPassword } : u)));
+    const { error } = await supabase
+      .from("users")
+      .update({ password: newPassword })
+      .eq("id", currentUser.id);
+
+    if (error) {
+      console.error(error);
+      return alert("خطأ في تغيير كلمة المرور");
+    }
+
+    await refreshUsers();
     addAuditLog?.("تغيير كلمة مرور", `قام المستخدم ${currentUser.username} بتغيير كلمة المرور الخاصة به`);
     setOldPassword("");
     setNewPassword("");
@@ -168,18 +214,30 @@ function Settings({
     alert("تم تغيير كلمة المرور بنجاح");
   };
 
-  const addUser = () => {
+  const addUser = async () => {
     if (!isAdmin) return alert("هذه الصلاحية للمدير فقط");
     const username = newUsername.trim();
     if (!username || !newUserPassword) return alert("أدخل اسم المستخدم وكلمة المرور");
     if (newUserPassword.length < 4) return alert("كلمة المرور يجب أن تكون 4 خانات على الأقل");
     if (users.some((u) => u.username === username)) return alert("اسم المستخدم موجود مسبقًا");
 
-    setUsers([
-      ...users,
-      { id: Date.now(), username, password: newUserPassword, role: newUserRole, active: true, createdAt: new Date().toISOString() },
-    ]);
+    const { error } = await supabase
+      .from("users")
+      .insert([
+        {
+          username,
+          password: newUserPassword,
+          role: newUserRole,
+          active: true,
+        },
+      ]);
 
+    if (error) {
+      console.error(error);
+      return alert(error.code === "23505" ? "اسم المستخدم موجود مسبقًا" : "خطأ في إضافة المستخدم");
+    }
+
+    await refreshUsers();
     addAuditLog?.("إضافة مستخدم", `تم إضافة المستخدم ${username} بصلاحية ${roleLabel(newUserRole)}`);
 
     setNewUsername("");
@@ -195,7 +253,7 @@ function Settings({
     setEditRole(user.role);
   };
 
-  const saveEditUser = () => {
+  const saveEditUser = async () => {
     if (!isAdmin) return alert("هذه الصلاحية للمدير فقط");
     const username = editUsername.trim();
     if (!username) return alert("أدخل اسم المستخدم");
@@ -207,18 +265,23 @@ function Settings({
       return alert("لا يمكن تغيير صلاحية آخر مدير");
     }
 
-    setUsers(
-      users.map((u) => {
-        if (u.id !== editingUserId) return u;
-        return {
-          ...u,
-          username,
-          role: editRole,
-          ...(editPassword ? { password: editPassword } : {}),
-        };
-      })
-    );
+    const payload = {
+      username,
+      role: editRole,
+      ...(editPassword ? { password: editPassword } : {}),
+    };
 
+    const { error } = await supabase
+      .from("users")
+      .update(payload)
+      .eq("id", editingUserId);
+
+    if (error) {
+      console.error(error);
+      return alert(error.code === "23505" ? "اسم المستخدم موجود مسبقًا" : "خطأ في تعديل المستخدم");
+    }
+
+    await refreshUsers();
     addAuditLog?.("تعديل مستخدم", `تم تعديل المستخدم ${username} إلى صلاحية ${roleLabel(editRole)}${editPassword ? " مع تغيير كلمة المرور" : ""}`);
 
     setEditingUserId(null);
@@ -228,7 +291,7 @@ function Settings({
     alert("تم تعديل المستخدم");
   };
 
-  const toggleUserActive = (id) => {
+  const toggleUserActive = async (id) => {
     if (!isAdmin) return;
     if (id === currentUser.id) return alert("لا يمكنك تعطيل حسابك الحالي");
 
@@ -240,11 +303,22 @@ function Settings({
     }
 
     const nextActive = targetUser.active === false ? true : false;
-    setUsers(users.map((u) => (u.id === id ? { ...u, active: nextActive } : u)));
+
+    const { error } = await supabase
+      .from("users")
+      .update({ active: nextActive })
+      .eq("id", id);
+
+    if (error) {
+      console.error(error);
+      return alert("خطأ في تغيير حالة المستخدم");
+    }
+
+    await refreshUsers();
     addAuditLog?.(nextActive ? "تفعيل مستخدم" : "تعطيل مستخدم", `تم ${nextActive ? "تفعيل" : "تعطيل"} المستخدم ${targetUser.username}`);
   };
 
-  const deleteUser = (id) => {
+  const deleteUser = async (id) => {
     if (!isAdmin) return;
     if (id === currentUser.id) return alert("لا يمكنك حذف حسابك الحالي");
 
@@ -256,7 +330,18 @@ function Settings({
     }
 
     if (!window.confirm("هل أنت متأكد من حذف المستخدم؟")) return;
-    setUsers(users.filter((u) => u.id !== id));
+
+    const { error } = await supabase
+      .from("users")
+      .delete()
+      .eq("id", id);
+
+    if (error) {
+      console.error(error);
+      return alert("خطأ في حذف المستخدم");
+    }
+
+    await refreshUsers();
     addAuditLog?.("حذف مستخدم", `تم حذف المستخدم ${targetUser.username}`);
   };
 
@@ -374,61 +459,6 @@ function Settings({
       {isAdmin && (
         <div style={styles.card}>
           <h3>سجل العمليات</h3>
-          {isAdmin && (
-  <div style={styles.card}>
-    <h3>بيانات المتجر</h3>
-
-    <input
-      value={storeName}
-      onChange={(e) => setStoreName(e.target.value)}
-      placeholder="اسم المتجر"
-      style={styles.input}
-    />
-
-    <input
-      value={storePhone}
-      onChange={(e) => setStorePhone(e.target.value)}
-      placeholder="رقم الهاتف"
-      style={styles.input}
-    />
-
-    <input
-      value={storeAddress}
-      onChange={(e) => setStoreAddress(e.target.value)}
-      placeholder="العنوان"
-      style={styles.input}
-    />
-
-    <label>شعار المتجر</label>
-
-    <input
-      type="file"
-      accept="image/*"
-      onChange={(e) => handleLogoUpload(e.target.files?.[0])}
-      style={styles.input}
-    />
-
-    {storeLogo && (
-      <img
-        src={storeLogo}
-        alt="logo"
-        style={{
-          width: "120px",
-          borderRadius: "12px",
-          marginTop: "10px",
-          display: "block",
-        }}
-      />
-    )}
-
-    <button
-      style={styles.saveBtn}
-      onClick={saveStoreSettings}
-    >
-      حفظ بيانات المتجر
-    </button>
-  </div>
-)}
           <p style={{ color: "#64748b" }}>
             آخر العمليات التي تمت داخل النظام مع اسم المستخدم والتاريخ.
           </p>

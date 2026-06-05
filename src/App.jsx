@@ -31,17 +31,35 @@ function App() {
     localStorage.getItem("currentPage") || "dashboard"
   );
 
-  const defaultUsers = [
-    { id: 1, username: "admin", password: "1234", role: "admin", active: true },
-  ];
+  const [users, setUsers] = useState([]);
+  const [usersLoaded, setUsersLoaded] = useState(false);
 
-  const [users, setUsers] = useState(() => {
-    try {
-      return JSON.parse(localStorage.getItem("hisabatiUsers")) || defaultUsers;
-    } catch {
-      return defaultUsers;
-    }
+  const normalizeUser = (user) => ({
+    id: user.id,
+    username: user.username,
+    password: user.password,
+    role: user.role || "cashier",
+    active: user.active !== false,
+    createdAt: user.created_at || user.createdAt || null,
   });
+
+  const loadUsers = async () => {
+    const { data, error } = await supabase
+      .from("users")
+      .select("*")
+      .order("id", { ascending: true });
+
+    if (error) {
+      console.error(error);
+      alert("خطأ في تحميل المستخدمين من Supabase. تأكد من إنشاء جدول users");
+      setUsers([]);
+      setUsersLoaded(true);
+      return;
+    }
+
+    setUsers((data || []).map(normalizeUser));
+    setUsersLoaded(true);
+  };
 
   const [currentUser, setCurrentUser] = useState(() => {
     try {
@@ -119,22 +137,32 @@ function App() {
     setPage(targetPage);
   };
 
-  const handleLogin = (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
-    const user = users.find(
-      (u) =>
-        u.active !== false &&
-        u.username === loginUsername.trim() &&
-        u.password === loginPassword
-    );
 
-    if (!user) return alert("اسم المستخدم أو كلمة المرور غير صحيحة");
+    const usernameInput = loginUsername.trim();
+    const passwordInput = loginPassword;
+
+    const { data, error } = await supabase
+      .from("users")
+      .select("*")
+      .eq("username", usernameInput)
+      .eq("password", passwordInput)
+      .eq("active", true)
+      .maybeSingle();
+
+    if (error) {
+      console.error(error);
+      return alert("حدث خطأ أثناء تسجيل الدخول");
+    }
+
+    if (!data) return alert("اسم المستخدم أو كلمة المرور غير صحيحة");
 
     const safeUser = {
-      id: user.id,
-      username: user.username,
-      role: user.role,
-      active: user.active !== false,
+      id: data.id,
+      username: data.username,
+      role: data.role || "cashier",
+      active: data.active !== false,
     };
 
     setCurrentUser(safeUser);
@@ -142,6 +170,8 @@ function App() {
     setLoginUsername("");
     setLoginPassword("");
     setPage("dashboard");
+
+    await loadUsers();
 
     const loginLog = {
       id: Date.now() + Math.random(),
@@ -381,11 +411,6 @@ const updateCustomer = async (customer) => {
   }, [page]);
 
   useEffect(() => {
-    localStorage.setItem("hisabatiUsers", JSON.stringify(users));
-  }, [users]);
-
-
-  useEffect(() => {
     localStorage.setItem("hisabatiStoreSettings", JSON.stringify(storeSettings));
   }, [storeSettings]);
 
@@ -567,6 +592,7 @@ const updateCustomer = async (customer) => {
   };
 
   useEffect(() => {
+    loadUsers();
     loadProducts();
     loadCustomers();
     loadSuppliers();
@@ -1190,6 +1216,16 @@ const updateCustomer = async (customer) => {
     );
   };
 
+  if (!usersLoaded) {
+    return (
+      <div dir="rtl" style={styles.loginPage}>
+        <div style={styles.loginCard}>
+          <h2>جاري تحميل المستخدمين...</h2>
+        </div>
+      </div>
+    );
+  }
+
   if (!currentUser) {
     return (
       <div dir="rtl" style={styles.loginPage}>
@@ -1422,6 +1458,7 @@ const updateCustomer = async (customer) => {
             supplierPayments={supplierPayments}
             users={users}
             setUsers={setUsers}
+            loadUsers={loadUsers}
             currentUser={currentUser}
             supabase={supabase}
             auditLogs={auditLogs}
