@@ -1,4 +1,4 @@
-function Sidebar({ setPage, styles, currentUser, canAccess }) {
+function Sidebar({ setPage, styles, currentUser, canAccess, isMobile = false, isOpen = true, onClose }) {
   const menuItems = [
     { page: "dashboard", label: "لوحة التحكم" },
     { page: "pos", label: "نقطة البيع" },
@@ -18,7 +18,23 @@ function Sidebar({ setPage, styles, currentUser, canAccess }) {
   );
 
   return (
-    <aside style={styles.sidebar}>
+    <aside
+      style={{
+        ...styles.sidebar,
+        ...(isMobile ? styles.mobileSidebar : {}),
+        ...(isMobile && !isOpen ? styles.mobileSidebarClosed : {}),
+      }}
+    >
+      {isMobile && (
+        <button
+          type="button"
+          onClick={onClose}
+          style={styles.mobileCloseButton}
+        >
+          ×
+        </button>
+      )}
+
       <img
         src="/logo-hisabati.png"
         alt="حساباتي"
@@ -45,7 +61,10 @@ function Sidebar({ setPage, styles, currentUser, canAccess }) {
         <button
           key={item.page}
           style={styles.menuButton}
-          onClick={() => setPage(item.page)}
+          onClick={() => {
+            setPage(item.page);
+            onClose?.();
+          }}
         >
           {item.label}
         </button>

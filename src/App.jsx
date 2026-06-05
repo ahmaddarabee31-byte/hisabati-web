@@ -31,35 +31,17 @@ function App() {
     localStorage.getItem("currentPage") || "dashboard"
   );
 
-  const [users, setUsers] = useState([]);
-  const [usersLoaded, setUsersLoaded] = useState(false);
+  const defaultUsers = [
+    { id: 1, username: "admin", password: "1234", role: "admin", active: true },
+  ];
 
-  const normalizeUser = (user) => ({
-    id: user.id,
-    username: user.username,
-    password: user.password,
-    role: user.role || "cashier",
-    active: user.active !== false,
-    createdAt: user.created_at || user.createdAt || null,
-  });
-
-  const loadUsers = async () => {
-    const { data, error } = await supabase
-      .from("users")
-      .select("*")
-      .order("id", { ascending: true });
-
-    if (error) {
-      console.error(error);
-      alert("خطأ في تحميل المستخدمين من Supabase. تأكد من إنشاء جدول users");
-      setUsers([]);
-      setUsersLoaded(true);
-      return;
+  const [users, setUsers] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem("hisabatiUsers")) || defaultUsers;
+    } catch {
+      return defaultUsers;
     }
-
-    setUsers((data || []).map(normalizeUser));
-    setUsersLoaded(true);
-  };
+  });
 
   const [currentUser, setCurrentUser] = useState(() => {
     try {
@@ -71,6 +53,23 @@ function App() {
 
   const [loginUsername, setLoginUsername] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
+
+  const [isMobile, setIsMobile] = useState(() =>
+    typeof window !== "undefined" ? window.innerWidth <= 768 : false
+  );
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  useEffect(() => {
+    const handleResize = () => {
+      const mobile = window.innerWidth <= 768;
+      setIsMobile(mobile);
+      if (!mobile) setMobileMenuOpen(false);
+    };
+
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
 
   const defaultStoreSettings = {
@@ -135,34 +134,25 @@ function App() {
       return;
     }
     setPage(targetPage);
+    setMobileMenuOpen(false);
   };
 
-  const handleLogin = async (e) => {
+  const handleLogin = (e) => {
     e.preventDefault();
+    const user = users.find(
+      (u) =>
+        u.active !== false &&
+        u.username === loginUsername.trim() &&
+        u.password === loginPassword
+    );
 
-    const usernameInput = loginUsername.trim();
-    const passwordInput = loginPassword;
-
-    const { data, error } = await supabase
-      .from("users")
-      .select("*")
-      .eq("username", usernameInput)
-      .eq("password", passwordInput)
-      .eq("active", true)
-      .maybeSingle();
-
-    if (error) {
-      console.error(error);
-      return alert("حدث خطأ أثناء تسجيل الدخول");
-    }
-
-    if (!data) return alert("اسم المستخدم أو كلمة المرور غير صحيحة");
+    if (!user) return alert("اسم المستخدم أو كلمة المرور غير صحيحة");
 
     const safeUser = {
-      id: data.id,
-      username: data.username,
-      role: data.role || "cashier",
-      active: data.active !== false,
+      id: user.id,
+      username: user.username,
+      role: user.role,
+      active: user.active !== false,
     };
 
     setCurrentUser(safeUser);
@@ -170,8 +160,6 @@ function App() {
     setLoginUsername("");
     setLoginPassword("");
     setPage("dashboard");
-
-    await loadUsers();
 
     const loginLog = {
       id: Date.now() + Math.random(),
@@ -411,6 +399,11 @@ const updateCustomer = async (customer) => {
   }, [page]);
 
   useEffect(() => {
+    localStorage.setItem("hisabatiUsers", JSON.stringify(users));
+  }, [users]);
+
+
+  useEffect(() => {
     localStorage.setItem("hisabatiStoreSettings", JSON.stringify(storeSettings));
   }, [storeSettings]);
 
@@ -592,7 +585,6 @@ const updateCustomer = async (customer) => {
   };
 
   useEffect(() => {
-    loadUsers();
     loadProducts();
     loadCustomers();
     loadSuppliers();
@@ -1216,16 +1208,6 @@ const updateCustomer = async (customer) => {
     );
   };
 
-  if (!usersLoaded) {
-    return (
-      <div dir="rtl" style={styles.loginPage}>
-        <div style={styles.loginCard}>
-          <h2>جاري تحميل المستخدمين...</h2>
-        </div>
-      </div>
-    );
-  }
-
   if (!currentUser) {
     return (
       <div dir="rtl" style={styles.loginPage}>
@@ -1260,10 +1242,82 @@ const updateCustomer = async (customer) => {
   }
 
   return (
-    <div dir="rtl" style={styles.app}>
-      <Sidebar setPage={goToPage} styles={styles} currentUser={currentUser} canAccess={canAccess} />
+    <div dir="rtl" style={{ ...styles.app, ...(isMobile ? styles.mobileApp : {}) }}>
+      <style>{`
+        @media (max-width: 768px) {
+          body { overflow-x: hidden; }
+          main h1 { font-size: 30px !important; text-align: center; margin-top: 54px; }
+          main h2 { font-size: 22px !important; }
+          main table {
+            display: block !important;
+            width: 100% !important;
+            background: transparent !important;
+            box-shadow: none !important;
+            border-radius: 0 !important;
+            overflow: visible !important;
+          }
+          main thead { display: none !important; }
+          main tbody { display: block !important; width: 100% !important; }
+          main tr {
+            display: block !important;
+            width: 100% !important;
+            background: white !important;
+            margin: 12px 0 !important;
+            padding: 12px !important;
+            border-radius: 18px !important;
+            box-shadow: 0 10px 25px rgba(15,23,42,0.08) !important;
+            text-decoration: none !important;
+          }
+          main td {
+            display: block !important;
+            width: 100% !important;
+            text-align: right !important;
+            padding: 10px 6px !important;
+            border-bottom: 1px solid #eef2f7 !important;
+            box-sizing: border-box !important;
+            font-size: 15px !important;
+          }
+          main td:last-child { border-bottom: 0 !important; }
+          main input, main select, main textarea {
+            width: 100% !important;
+            max-width: 100% !important;
+            font-size: 16px !important;
+          }
+          main button {
+            min-height: 44px;
+            margin: 4px;
+          }
+        }
+      `}</style>
 
-      <main style={styles.content}>
+      {isMobile && (
+        <button
+          type="button"
+          onClick={() => setMobileMenuOpen(true)}
+          style={styles.mobileMenuButton}
+        >
+          ☰
+        </button>
+      )}
+
+      {isMobile && mobileMenuOpen && (
+        <div
+          style={styles.mobileOverlay}
+          onClick={() => setMobileMenuOpen(false)}
+        />
+      )}
+
+      <Sidebar
+        setPage={goToPage}
+        styles={styles}
+        currentUser={currentUser}
+        canAccess={canAccess}
+        isMobile={isMobile}
+        isOpen={mobileMenuOpen}
+        onClose={() => setMobileMenuOpen(false)}
+      />
+
+      <main style={{ ...styles.content, ...(isMobile ? styles.mobileContent : {}) }}>
         <div style={styles.userBar}>
           <span>المستخدم: {currentUser.username} - {currentUser.role}</span>
           <button onClick={logout} style={styles.logoutBtn}>تسجيل خروج</button>
@@ -1458,7 +1512,6 @@ const updateCustomer = async (customer) => {
             supplierPayments={supplierPayments}
             users={users}
             setUsers={setUsers}
-            loadUsers={loadUsers}
             currentUser={currentUser}
             supabase={supabase}
             auditLogs={auditLogs}

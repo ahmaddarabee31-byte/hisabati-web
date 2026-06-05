@@ -24,7 +24,6 @@ export const styles = {
     padding: "34px",
     overflowY: "auto",
   },
-  
 
   logo: {
     textAlign: "center",
@@ -74,21 +73,19 @@ export const styles = {
   },
 
   input: {
-  width: "100%",
-  padding: "15px 16px",
-  borderRadius: "16px",
-  border: "1px solid #c7d2fe",
-  background: "#ffffff",
-
-  color: "#0f172a",
-  WebkitTextFillColor: "#0f172a",
-  caretColor: "#2563eb",
-
-  fontSize: "16px",
-  marginBottom: "13px",
-  outline: "none",
-  boxSizing: "border-box",
-},
+    width: "100%",
+    padding: "15px 16px",
+    borderRadius: "16px",
+    border: "1px solid #c7d2fe",
+    background: "#ffffff",
+    color: "#0f172a",
+    WebkitTextFillColor: "#0f172a",
+    caretColor: "#2563eb",
+    fontSize: "16px",
+    marginBottom: "13px",
+    outline: "none",
+    boxSizing: "border-box",
+  },
 
   textarea: {
     width: "100%",
@@ -209,6 +206,7 @@ modal: {
 
   loginCard: {
     width: "420px",
+    maxWidth: "90vw",
     background: "white",
     borderRadius: "28px",
     padding: "34px",
@@ -237,6 +235,78 @@ modal: {
     padding: "10px 18px",
     cursor: "pointer",
     fontWeight: "800",
+  },
+
+  mobileApp: {
+    display: "block",
+    minHeight: "100vh",
+    overflowX: "hidden",
+  },
+
+  mobileContent: {
+    width: "100%",
+    minHeight: "100vh",
+    padding: "16px",
+    paddingTop: "18px",
+    boxSizing: "border-box",
+    overflowX: "hidden",
+  },
+
+  mobileMenuButton: {
+    position: "fixed",
+    top: "14px",
+    right: "14px",
+    zIndex: 10001,
+    width: "48px",
+    height: "48px",
+    borderRadius: "14px",
+    border: "none",
+    background: "linear-gradient(135deg,#2563eb,#4f46e5)",
+    color: "white",
+    fontSize: "26px",
+    fontWeight: "900",
+    boxShadow: "0 12px 28px rgba(37,99,235,0.35)",
+    cursor: "pointer",
+  },
+
+  mobileOverlay: {
+    position: "fixed",
+    inset: 0,
+    background: "rgba(15,23,42,0.45)",
+    zIndex: 9998,
+  },
+
+  mobileSidebar: {
+    position: "fixed",
+    top: 0,
+    right: 0,
+    bottom: 0,
+    width: "82vw",
+    maxWidth: "340px",
+    height: "100vh",
+    overflowY: "auto",
+    zIndex: 9999,
+    transform: "translateX(0)",
+    transition: "transform 0.25s ease",
+  },
+
+  mobileSidebarClosed: {
+    transform: "translateX(110%)",
+    pointerEvents: "none",
+  },
+
+  mobileCloseButton: {
+    alignSelf: "flex-start",
+    width: "42px",
+    height: "42px",
+    borderRadius: "14px",
+    border: "1px solid rgba(255,255,255,0.12)",
+    background: "rgba(255,255,255,0.08)",
+    color: "white",
+    fontSize: "28px",
+    lineHeight: "38px",
+    cursor: "pointer",
+    marginBottom: "8px",
   },
 
   badgePaid: {
@@ -413,6 +483,78 @@ modal: {
     padding: "14px",
     borderBottom: "1px solid #e2e8f0",
     textAlign: "center",
+  },
+
+  mobileApp: {
+    display: "block",
+    minHeight: "100vh",
+    overflowX: "hidden",
+  },
+
+  mobileContent: {
+    width: "100%",
+    minHeight: "100vh",
+    padding: "16px",
+    paddingTop: "18px",
+    boxSizing: "border-box",
+    overflowX: "hidden",
+  },
+
+  mobileMenuButton: {
+    position: "fixed",
+    top: "14px",
+    right: "14px",
+    zIndex: 10001,
+    width: "48px",
+    height: "48px",
+    borderRadius: "14px",
+    border: "none",
+    background: "linear-gradient(135deg,#2563eb,#4f46e5)",
+    color: "white",
+    fontSize: "26px",
+    fontWeight: "900",
+    boxShadow: "0 12px 28px rgba(37,99,235,0.35)",
+    cursor: "pointer",
+  },
+
+  mobileOverlay: {
+    position: "fixed",
+    inset: 0,
+    background: "rgba(15,23,42,0.45)",
+    zIndex: 9998,
+  },
+
+  mobileSidebar: {
+    position: "fixed",
+    top: 0,
+    right: 0,
+    bottom: 0,
+    width: "82vw",
+    maxWidth: "340px",
+    height: "100vh",
+    overflowY: "auto",
+    zIndex: 9999,
+    transform: "translateX(0)",
+    transition: "transform 0.25s ease",
+  },
+
+  mobileSidebarClosed: {
+    transform: "translateX(110%)",
+    pointerEvents: "none",
+  },
+
+  mobileCloseButton: {
+    alignSelf: "flex-start",
+    width: "42px",
+    height: "42px",
+    borderRadius: "14px",
+    border: "1px solid rgba(255,255,255,0.12)",
+    background: "rgba(255,255,255,0.08)",
+    color: "white",
+    fontSize: "28px",
+    lineHeight: "38px",
+    cursor: "pointer",
+    marginBottom: "8px",
   },
 
   badgePaid: {
